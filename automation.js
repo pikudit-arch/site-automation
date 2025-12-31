@@ -312,7 +312,7 @@ async function main() {
     console.log("STEP13: fill new login");
     const newLoginInput = pageConfirm.locator('input[name="login"]').first();
     await newLoginInput.waitFor({ state: "visible" });
-    await newLoginInput.fill("romfh325");
+    await newLoginInput.fill(desiredLogin);
 
     // Step 14) Fill new password
     console.log("STEP14: fill new password");
