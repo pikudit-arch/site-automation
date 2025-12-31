@@ -314,7 +314,7 @@ async function main() {
     console.log("STEP13: fill new login");
     const newLoginInput = pageConfirm.locator('input[name="login"]').first();
     await newLoginInput.waitFor({ state: "visible" });
-    await newLoginInput.fill(desiredLogin);
+    await newLoginInput.fill("romama122");
 
     // Step 14) Fill new password
     console.log("STEP14: fill new password");
