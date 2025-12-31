@@ -262,7 +262,6 @@ async function main() {
     const backToLoginBtn = pageConfirm.locator("button", { hasText: "חזרה להתחברות" }).first();
     await backToLoginBtn.waitFor({ state: "visible" });
 
-    // Fail-loud: do not swallow navigation failures
     await Promise.all([
       pageConfirm.waitForNavigation({ waitUntil: "domcontentloaded" }),
       backToLoginBtn.click(),
@@ -290,7 +289,6 @@ async function main() {
     const loginSubmit = pageConfirm.locator('button[type="submit"]').first();
     await loginSubmit.waitFor({ state: "visible" });
 
-    // Fail-loud
     await Promise.all([
       pageConfirm.waitForNavigation({ waitUntil: "domcontentloaded" }),
       loginSubmit.click(),
@@ -314,7 +312,7 @@ async function main() {
     console.log("STEP13: fill new login");
     const newLoginInput = pageConfirm.locator('input[name="login"]').first();
     await newLoginInput.waitFor({ state: "visible" });
-    await newLoginInput.fill("romama122");
+    await newLoginInput.fill("romfh325");
 
     // Step 14) Fill new password
     console.log("STEP14: fill new password");
@@ -328,15 +326,34 @@ async function main() {
     await newConfirmInput.waitFor({ state: "visible" });
     await newConfirmInput.fill("Aa123456!");
 
-    // Step 16) Click "אשר"
+    // Step 16) Click "אשר" AND WAIT FOR BACKEND POST TO COMPLETE
     console.log("STEP16: click אשר");
     const approveBtn = pageConfirm.locator("button", { hasText: "אשר" }).first();
     await approveBtn.waitFor({ state: "visible" });
 
-    await Promise.all([
-      approveBtn.click(),
-      pageConfirm.waitForLoadState("networkidle").catch(() => null),
-    ]);
+    const trialRespPromise = pageConfirm.waitForResponse(
+      (res) =>
+        res.request().method() === "POST" &&
+        res.url().includes("/api/subscriptions/users/") &&
+        res.url().endsWith("/trial"),
+      { timeout: 60_000 }
+    );
+
+    await approveBtn.click();
+
+    const trialResp = await trialRespPromise;
+    console.log("TRIAL_RESP:", trialResp.status(), trialResp.url());
+
+    if (!trialResp.ok()) {
+      const body = await trialResp.text().catch(() => "");
+      throw new Error(`Trial request failed: ${trialResp.status()}\n${body.slice(0, 800)}`);
+    }
+
+    // Optional: modal closes after success (don’t hard-fail if it doesn’t)
+    const modalTitle = pageConfirm.locator("text=הקמת חשבון חדש ב-3 שלבים").first();
+    await modalTitle.waitFor({ state: "hidden", timeout: 30_000 }).catch(() => null);
+
+    console.log("STEP16: trial confirmed and modal closed (or closing)");
 
     // Step 17-18) Print results
     console.log(`email is: ${email}`);
@@ -350,7 +367,6 @@ async function main() {
       tracingStarted = false;
     }
 
-    // Close all tabs
     await closeAllTabs(context);
   } finally {
     // Ensure trace gets saved even if something throws
