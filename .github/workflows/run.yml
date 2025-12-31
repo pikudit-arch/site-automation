@@ -23,3 +23,10 @@ jobs:
 
       - name: Run automation
         run: node automation.js
+
+      - name: Upload trace
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-trace
+          path: trace.zip
