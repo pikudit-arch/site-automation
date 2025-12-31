@@ -252,4 +252,123 @@ async function main() {
       }
     });
 
-    // Step 4) Navigate to
+    // Step 4) Navigate to confirmation URL
+    console.log("STEP4: goto confirm url");
+    await pageConfirm.goto(confirmUrl, { waitUntil: "domcontentloaded" });
+    console.log("AFTER_CONFIRM_GOTO_URL:", pageConfirm.url());
+
+    // Step 5) Click "חזרה להתחברות"
+    console.log("STEP5: click חזרה להתחברות");
+    const backToLoginBtn = pageConfirm.locator("button", { hasText: "חזרה להתחברות" }).first();
+    await backToLoginBtn.waitFor({ state: "visible" });
+
+    // Fail-loud: do not swallow navigation failures
+    await Promise.all([
+      pageConfirm.waitForNavigation({ waitUntil: "domcontentloaded" }),
+      backToLoginBtn.click(),
+    ]);
+    console.log("AFTER_BACK_CLICK_URL:", pageConfirm.url());
+
+    // Step 6) Wait 5 seconds so the confirmation is processed server-side
+    console.log("STEP6: wait 5s");
+    await pageConfirm.waitForTimeout(5000);
+
+    // Step 7) Fill login "login"
+    console.log("STEP7: fill login");
+    const loginField = pageConfirm.locator('input[name="login"]').first();
+    await loginField.waitFor({ state: "visible" });
+    await loginField.fill(email);
+
+    // Step 8) Fill login "password"
+    console.log("STEP8: fill password");
+    const loginPass = pageConfirm.locator('input[name="password"]').first();
+    await loginPass.waitFor({ state: "visible" });
+    await loginPass.fill("Aa123456!");
+
+    // Step 9) Submit login
+    console.log("STEP9: submit login");
+    const loginSubmit = pageConfirm.locator('button[type="submit"]').first();
+    await loginSubmit.waitFor({ state: "visible" });
+
+    // Fail-loud
+    await Promise.all([
+      pageConfirm.waitForNavigation({ waitUntil: "domcontentloaded" }),
+      loginSubmit.click(),
+    ]);
+    console.log("AFTER_LOGIN_SUBMIT_URL:", pageConfirm.url());
+
+    // Step 10) Wait for /subscriptions
+    console.log("STEP10: wait for /subscriptions");
+    await pageConfirm.waitForURL("**/subscriptions**", { timeout: 30000 });
+    console.log("ON_SUBSCRIPTIONS_URL:", pageConfirm.url());
+
+    // Step 11) Build desired username
+    const desiredLogin = `romani${ddmmyyToday()}`;
+    console.log("DESIRED_LOGIN:", desiredLogin);
+
+    // Step 12) Wait 5 seconds (inputs may mount late)
+    console.log("STEP12: wait 5s");
+    await pageConfirm.waitForTimeout(5000);
+
+    // Step 13) Fill new login
+    console.log("STEP13: fill new login");
+    const newLoginInput = pageConfirm.locator('input[name="login"]').first();
+    await newLoginInput.waitFor({ state: "visible" });
+    await newLoginInput.fill(desiredLogin);
+
+    // Step 14) Fill new password
+    console.log("STEP14: fill new password");
+    const newPassInput = pageConfirm.locator('input[name="password"]').first();
+    await newPassInput.waitFor({ state: "visible" });
+    await newPassInput.fill("Aa123456!");
+
+    // Step 15) Fill confirm password
+    console.log("STEP15: fill confirm password");
+    const newConfirmInput = pageConfirm.locator('input[name="confirmPassword"]').first();
+    await newConfirmInput.waitFor({ state: "visible" });
+    await newConfirmInput.fill("Aa123456!");
+
+    // Step 16) Click "אשר"
+    console.log("STEP16: click אשר");
+    const approveBtn = pageConfirm.locator("button", { hasText: "אשר" }).first();
+    await approveBtn.waitFor({ state: "visible" });
+
+    await Promise.all([
+      approveBtn.click(),
+      pageConfirm.waitForLoadState("networkidle").catch(() => null),
+    ]);
+
+    // Step 17-18) Print results
+    console.log(`email is: ${email}`);
+    console.log(`user is: ${desiredLogin}`);
+    console.log(desiredLogin);
+
+    // Stop trace BEFORE closing context/browser
+    if (tracingStarted) {
+      await context.tracing.stop({ path: "trace.zip" });
+      console.log("TRACE_SAVED: trace.zip");
+      tracingStarted = false;
+    }
+
+    // Close all tabs
+    await closeAllTabs(context);
+  } finally {
+    // Ensure trace gets saved even if something throws
+    if (tracingStarted) {
+      try {
+        await context.tracing.stop({ path: "trace.zip" });
+        console.log("TRACE_SAVED: trace.zip");
+      } catch (e) {
+        console.log("TRACE_STOP_FAILED:", String(e?.message || e));
+      }
+    }
+
+    await context.close().catch(() => null);
+    await browser.close().catch(() => null);
+  }
+}
+
+main().catch((e) => {
+  console.error(e);
+  process.exit(1);
+});
