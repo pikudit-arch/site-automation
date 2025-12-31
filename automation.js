@@ -332,8 +332,8 @@ async function main() {
     console.log("ON_SUBSCRIPTIONS_URL:", pageConfirm.url());
 
     // Step 11) Build desired username: romani + ddmmyy
-    const desiredLogin = `romani${ddmmyyToday()}`;
-    desiredLogin = `romani2638s`;
+    let desiredLogin = `romani${ddmmyyToday()}`;
+    desiredLogin = `romani6648s`;
     console.log("DESIRED_LOGIN:", desiredLogin);
 
     // Step 12) Wait 5 seconds before filling the subscription form
