@@ -149,7 +149,6 @@ async function waitForConfirmationLink({ token, timeoutMs = 120_000, pollEveryMs
 }
 
 async function closeAllTabs(context) {
-  // Close every open page/tab in this browser context
   const pages = context.pages();
   for (const p of pages) {
     try {
@@ -161,10 +160,17 @@ async function closeAllTabs(context) {
 }
 
 async function main() {
+  // MUST be headless for GitHub runners
   const browser = await chromium.launch({ headless: true });
   const context = await browser.newContext();
 
+  let tracingStarted = false;
+
   try {
+    // Start trace for debugging (works in headless too)
+    await context.tracing.start({ screenshots: true, snapshots: true, sources: true });
+    tracingStarted = true;
+
     // Step 1) Create mail.tm inbox
     const mailbox = await createMailTmMailbox();
     const email = mailbox.address;
@@ -183,12 +189,14 @@ async function main() {
     const submitBtn = pageSignup.locator('button[type="submit"]', { hasText: "הרשמה" }).first();
     await submitBtn.waitFor({ state: "visible" });
 
+    console.log("STEP2: clicking הרשמה");
     await Promise.all([
       submitBtn.click(),
       pageSignup.waitForLoadState("networkidle").catch(() => null),
     ]);
 
     // Step 3) Get confirmation URL from mail.tm
+    console.log("STEP3: waiting for confirmation email...");
     const confirmUrl = await waitForConfirmationLink({
       token: mailbox.token,
       timeoutMs: 120_000,
@@ -197,10 +205,7 @@ async function main() {
 
     console.log("CONFIRMATION_URL:", confirmUrl);
 
-    // ============================================================
-    // LOGGING (unchanged) — and then continue with your steps
-    // ============================================================
-
+    // Step 4+) Confirm flow
     const pageConfirm = await context.newPage();
 
     pageConfirm.on("console", (msg) => {
@@ -247,90 +252,4 @@ async function main() {
       }
     });
 
-    // Step 4) Navigate to confirmation URL
-    await pageConfirm.goto(confirmUrl, { waitUntil: "domcontentloaded" });
-
-    // Step 5) Click <button> with value/text "חזרה להתחברות"
-    const backToLoginBtn = pageConfirm.locator("button", { hasText: "חזרה להתחברות" }).first();
-    await backToLoginBtn.waitFor({ state: "visible" });
-
-    await Promise.all([
-      pageConfirm.waitForNavigation({ waitUntil: "domcontentloaded" }).catch(() => null),
-      backToLoginBtn.click(),
-    ]);
-
-    // Step 6) Wait 5 seconds so the confirmation is fully processed server-side
-    await pageConfirm.waitForTimeout(5000);
-
-    // Step 7) Fill login page: <input name="login"> with the email
-    const loginField = pageConfirm.locator('input[name="login"]').first();
-    await loginField.waitFor({ state: "visible" });
-    await loginField.fill(email);
-
-    // Step 8) Fill login page: <input name="password"> with Aa123456!
-    const loginPass = pageConfirm.locator('input[name="password"]').first();
-    await loginPass.waitFor({ state: "visible" });
-    await loginPass.fill("Aa123456!");
-
-    // Step 9) Press <button type="submit"> to login
-    const loginSubmit = pageConfirm.locator('button[type="submit"]').first();
-    await loginSubmit.waitFor({ state: "visible" });
-
-    await Promise.all([
-      pageConfirm.waitForNavigation({ waitUntil: "domcontentloaded" }).catch(() => null),
-      loginSubmit.click(),
-    ]);
-
-    // Step 10) Wait for /subscriptions to load
-    await pageConfirm.waitForURL("**/subscriptions**", { timeout: 15000 }).catch(() => null);
-
-    // Step 11) Build desired username: romani + ddmmyy
-    const desiredLogin = `romani${ddmmyyToday()}`;
-
-    // Step 12) Wait 5 seconds before filling the subscription form (inputs may mount late)
-    await pageConfirm.waitForTimeout(5000);
-
-    // Step 13) Fill <input name="login"> with desiredLogin
-    const newLoginInput = pageConfirm.locator('input[name="login"]').first();
-    await newLoginInput.waitFor({ state: "visible" });
-    await newLoginInput.fill("romani021225");
-
-    // Step 14) Fill <input name="password"> with Aa123456!
-    const newPassInput = pageConfirm.locator('input[name="password"]').first();
-    await newPassInput.waitFor({ state: "visible" });
-    await newPassInput.fill("Aa123456!");
-
-    // Step 15) Fill <input name="confirmPassword"> with Aa123456!
-    const newConfirmInput = pageConfirm.locator('input[name="confirmPassword"]').first();
-    await newConfirmInput.waitFor({ state: "visible" });
-    await newConfirmInput.fill("Aa123456!");
-
-    // Step 16) Click <button> with value/text "אשר"
-    const approveBtn = pageConfirm.locator("button", { hasText: "אשר" }).first();
-    await approveBtn.waitFor({ state: "visible" });
-
-    await Promise.all([
-      approveBtn.click(),
-      pageConfirm.waitForLoadState("networkidle").catch(() => null),
-    ]);
-
-    // Step 17) Print email + user used
-    console.log(`email is: ${email}`);
-    console.log(`user is: ${desiredLogin}`);
-
-    // Step 18) Print a line with ONLY the desiredLogin
-    console.log(desiredLogin);
-
-    // Step 19) Close all tabs and finish automation
-    await closeAllTabs(context);
-  } finally {
-    // Ensure browser is closed even if something throws
-    await context.close().catch(() => null);
-    await browser.close().catch(() => null);
-  }
-}
-
-main().catch((e) => {
-  console.error(e);
-  process.exit(1);
-});
+    // Step 4) Navigate to
