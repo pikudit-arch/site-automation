@@ -161,7 +161,7 @@ async function closeAllTabs(context) {
 }
 
 async function main() {
-  const browser = await chromium.launch({ headless: false, slowMo: 150 });
+  const browser = await chromium.launch({ headless: true });
   const context = await browser.newContext();
 
   try {
