@@ -159,6 +159,37 @@ async function closeAllTabs(context) {
   }
 }
 
+/**
+ * Post result back to your Worker so your website can display desiredLogin.
+ */
+async function postResult(desiredLogin, email) {
+  const url = process.env.RESULT_WEBHOOK_URL;
+  const jobId = process.env.JOB_ID;
+
+  if (!url || !jobId) {
+    console.log("RESULT_WEBHOOK_URL or JOB_ID not set; skipping result post");
+    return;
+  }
+
+  const payload = {
+    jobId,
+    desiredLogin,
+    email,
+    ts: new Date().toISOString(),
+  };
+
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+
+  const text = await res.text().catch(() => "");
+  if (!res.ok) throw new Error(`Result webhook failed: ${res.status} ${text}`);
+
+  console.log("RESULT_POSTED:", JSON.stringify(payload));
+}
+
 async function main() {
   // MUST be headless for GitHub runners
   const browser = await chromium.launch({ headless: true });
@@ -272,19 +303,19 @@ async function main() {
     console.log("STEP6: wait 5s");
     await pageConfirm.waitForTimeout(5000);
 
-    // Step 7) Fill login "login"
+    // Step 7) Fill login page: <input name="login"> with the email
     console.log("STEP7: fill login");
     const loginField = pageConfirm.locator('input[name="login"]').first();
     await loginField.waitFor({ state: "visible" });
     await loginField.fill(email);
 
-    // Step 8) Fill login "password"
+    // Step 8) Fill login page: <input name="password"> with Aa123456!
     console.log("STEP8: fill password");
     const loginPass = pageConfirm.locator('input[name="password"]').first();
     await loginPass.waitFor({ state: "visible" });
     await loginPass.fill("Aa123456!");
 
-    // Step 9) Submit login
+    // Step 9) Press <button type="submit"> to login
     console.log("STEP9: submit login");
     const loginSubmit = pageConfirm.locator('button[type="submit"]').first();
     await loginSubmit.waitFor({ state: "visible" });
@@ -295,38 +326,38 @@ async function main() {
     ]);
     console.log("AFTER_LOGIN_SUBMIT_URL:", pageConfirm.url());
 
-    // Step 10) Wait for /subscriptions
+    // Step 10) Wait for /subscriptions to load
     console.log("STEP10: wait for /subscriptions");
     await pageConfirm.waitForURL("**/subscriptions**", { timeout: 30000 });
     console.log("ON_SUBSCRIPTIONS_URL:", pageConfirm.url());
 
-    // Step 11) Build desired username
+    // Step 11) Build desired username: romani + ddmmyy
     const desiredLogin = `romani${ddmmyyToday()}`;
     console.log("DESIRED_LOGIN:", desiredLogin);
 
-    // Step 12) Wait 5 seconds (inputs may mount late)
+    // Step 12) Wait 5 seconds before filling the subscription form
     console.log("STEP12: wait 5s");
     await pageConfirm.waitForTimeout(5000);
 
-    // Step 13) Fill new login
+    // Step 13) Fill <input name="login"> with desiredLogin
     console.log("STEP13: fill new login");
     const newLoginInput = pageConfirm.locator('input[name="login"]').first();
     await newLoginInput.waitFor({ state: "visible" });
     await newLoginInput.fill(desiredLogin);
 
-    // Step 14) Fill new password
+    // Step 14) Fill <input name="password"> with Aa123456!
     console.log("STEP14: fill new password");
     const newPassInput = pageConfirm.locator('input[name="password"]').first();
     await newPassInput.waitFor({ state: "visible" });
     await newPassInput.fill("Aa123456!");
 
-    // Step 15) Fill confirm password
+    // Step 15) Fill <input name="confirmPassword"> with Aa123456!
     console.log("STEP15: fill confirm password");
     const newConfirmInput = pageConfirm.locator('input[name="confirmPassword"]').first();
     await newConfirmInput.waitFor({ state: "visible" });
     await newConfirmInput.fill("Aa123456!");
 
-    // Step 16) Click "אשר" AND WAIT FOR BACKEND POST TO COMPLETE
+    // Step 16) Click "אשר" and WAIT for backend POST to complete
     console.log("STEP16: click אשר");
     const approveBtn = pageConfirm.locator("button", { hasText: "אשר" }).first();
     await approveBtn.waitFor({ state: "visible" });
@@ -349,13 +380,16 @@ async function main() {
       throw new Error(`Trial request failed: ${trialResp.status()}\n${body.slice(0, 800)}`);
     }
 
-    // Optional: modal closes after success (don’t hard-fail if it doesn’t)
+    // Optional: wait for the modal to disappear (don’t hard-fail if it doesn’t)
     const modalTitle = pageConfirm.locator("text=הקמת חשבון חדש ב-3 שלבים").first();
     await modalTitle.waitFor({ state: "hidden", timeout: 30_000 }).catch(() => null);
 
     console.log("STEP16: trial confirmed and modal closed (or closing)");
 
-    // Step 17-18) Print results
+    // Post the result back to your Worker (so your website can show it)
+    await postResult(desiredLogin, email);
+
+    // Print results in logs too
     console.log(`email is: ${email}`);
     console.log(`user is: ${desiredLogin}`);
     console.log(desiredLogin);
@@ -367,6 +401,7 @@ async function main() {
       tracingStarted = false;
     }
 
+    // Close all tabs and finish
     await closeAllTabs(context);
   } finally {
     // Ensure trace gets saved even if something throws

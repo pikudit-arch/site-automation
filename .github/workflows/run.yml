@@ -2,6 +2,10 @@ name: Run automation
 
 on:
   workflow_dispatch:
+    inputs:
+      jobId:
+        description: "Job id from trigger"
+        required: true
 
 jobs:
   run:
@@ -22,6 +26,9 @@ jobs:
         run: npx playwright install --with-deps
 
       - name: Run automation
+        env:
+          JOB_ID: ${{ github.event.inputs.jobId }}
+          RESULT_WEBHOOK_URL: ${{ secrets.RESULT_WEBHOOK_URL }}
         run: node automation.js
 
       - name: Upload trace
