@@ -333,7 +333,7 @@ async function main() {
 
     // Step 11) Build desired username: romani + ddmmyy
     let desiredLogin = `romani${ddmmyyToday()}`;
-    desiredLogin = `romani6648s`;
+    desiredLogin = `romanift48s`;
     console.log("DESIRED_LOGIN:", desiredLogin);
 
     // Step 12) Wait 5 seconds before filling the subscription form
