@@ -293,7 +293,7 @@ async function main() {
     // Step 13) Fill <input name="login"> with desiredLogin
     const newLoginInput = pageConfirm.locator('input[name="login"]').first();
     await newLoginInput.waitFor({ state: "visible" });
-    await newLoginInput.fill("romani121225");
+    await newLoginInput.fill("romani021225");
 
     // Step 14) Fill <input name="password"> with Aa123456!
     const newPassInput = pageConfirm.locator('input[name="password"]').first();
